@@ -22,6 +22,13 @@ def _get_env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _get_env_list(name: str) -> list[str]:
+    value = os.getenv(name, "")
+    if not value.strip():
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 @mcp.tool()
 def create_ticket_tool(description: str):
     """Create a Freshworks ticket.
@@ -88,6 +95,15 @@ if __name__ == "__main__":
     mcp.settings.streamable_http_path = os.getenv("MCP_HTTP_PATH", "/mcp")
     mcp.settings.mount_path = os.getenv("MCP_SSE_PATH", "/sse")
     mcp.settings.debug = _get_env_bool("MCP_DEBUG", False)
+
+    # Explicitly control transport security via env so EC2 behavior is deterministic.
+    mcp.settings.transport_security.enable_dns_rebinding_protection = _get_env_bool(
+        "FASTMCP_TRANSPORT_SECURITY__ENABLE_DNS_REBINDING_PROTECTION",
+        True,
+    )
+    allowed_hosts = _get_env_list("FASTMCP_TRANSPORT_SECURITY__ALLOWED_HOSTS")
+    if allowed_hosts:
+        mcp.settings.transport_security.allowed_hosts = allowed_hosts
 
     if transport == "streamable-http":
         mcp.run(transport="streamable-http")
